@@ -1,5 +1,5 @@
 import xxhash, os, sys
-from tkinter import Tk,Listbox,Button,Toplevel
+from tkinter import Tk,Listbox,Button,Toplevel,Label
 from tkinter import filedialog
 #from tkFileDialog import askdirectory
 import subprocess
@@ -8,6 +8,27 @@ from threading import Thread
 from tkinter.ttk import Treeview, Progressbar
 from tkinter.filedialog import askdirectory
 import ast
+
+class MiniWindow:
+    def __init__(self,root,list):
+        self.list = list
+        self.mini = Toplevel(root)
+        self.mini.wm_title("Matches")
+        self.mini.geometry("500x100")
+        self.filelist = Listbox(self.mini)
+        for item in self.list:
+            self.filelist.insert('end',str(item))
+        self.filelist.bind("<<ListboxSelect>>",self.onClick)
+        self.filelist.pack(fill="both")
+    def onClick(self,event):
+        print(self.filelist.curselection())
+        index = int(self.filelist.curselection()[0])
+        link = self.list[index]
+        filedir = os.path.dirname(link)
+        if os.name == 'nt':
+            os.startfile(filedir)
+        elif os.name == 'posix':
+            subprocess.Popen(["xdg-open",filedir])
 
 class Search:
     def hashdirectories(self,directories,map,ldb):
@@ -65,12 +86,12 @@ class Window:
                 else:
                     for lk in mini:
                         if abspath in lk:
-                            color = 'yellow'
+                            color = 'purple'
             child = None
             if color == 'red':
-                child = self.tree.insert(parent,'end',text=(file+" matches "+str(treelist[1:])),open=False,tags=(abspath,'red',str(treelist)),)
-            elif color == 'yellow':
-                child = self.tree.insert(parent,'end',text=file,open=False,tags=(abspath,'yellow'))
+                child = self.tree.insert(parent,'end',text=file,open=False,tags=(abspath,'red',str(treelist)),)
+            elif color == 'purple':
+                child = self.tree.insert(parent,'end',text=file,open=False,tags=(abspath,'purple'))
             else:
                 child = self.tree.insert(parent,'end',text=file,open=False,tags=(abspath,'white'))
             if(os.path.isdir(abspath)):
@@ -78,14 +99,14 @@ class Window:
     def __init__(self,list,dirlist):
         self.root = Tk()
         self.root.wm_title("Duplicate_Files")
-
+        self.min = None
         self.list = list
         self.root.geometry('600x600')
         self.tree = Treeview(self.root ,height=15)
         self.tree.pack(expand='yes',fill='both')
         self.tree.heading('#0',text="files")
-        self.tree.tag_configure('red',background='red',foreground='white')
-        self.tree.tag_configure('yellow',background='yellow')
+        self.tree.tag_configure('red',foreground='red')
+        self.tree.tag_configure('purple',foreground='#cc00ff')
         self.tree.bind("<Double-1>",self.onDoubleClick)
         self.tree.bind("<<TreeviewOpen>>",self.onOpen)
         self.tree.bind("<<TreeviewClose>>",self.onClose)
@@ -99,12 +120,11 @@ class Window:
         item = self.tree.selection()[0]
         print ("clicked" + str(self.tree.item(item,'tags')[0]))
         if str(self.tree.item(item,'tags')[1]) == "red":
-            for link in ast.literal_eval(str(self.tree.item(item,'tags')[2])):
-                filedir =  os.path.dirname(link)
-                if os.name == 'nt':
-                    os.startfile(filedir)
-                elif os.name == 'posix':
-                    subprocess.Popen(["xdg-open",filedir])
+            list_of_files = ast.literal_eval(str(self.tree.item(item,'tags')[2]))
+            if self.min != None:
+                if self.min.mini.winfo_exists():
+                    self.min.mini.destroy()
+            self.min = MiniWindow(self.root,list_of_files)
 
     def onOpen(self,event):
         item = self.tree.selection()[0]
@@ -117,7 +137,8 @@ class Window:
     def onClose(self,event):
         item = self.tree.selection()[0]
         if self.tree.parent(item) != '':
-            self.tree.delete(self.tree.get_children(item))
+            if len(self.tree.get_children(item))>0:
+                self.tree.delete(self.tree.get_children(item))
 
 dirlist = []
 
@@ -133,6 +154,9 @@ class FileChooser:
         self.button.pack(fill='x')
         self.listview.pack(fill="both")
         self.closebutton.pack()
+        self.instructions = Label(self.filechooser, text="Select directories, then press done. \n When the file tree appears, red text means the file or folder is a duplicate.\n purple means the folder contains duplicates but is not a duplicate. \n Click on red text entries to view matches")
+        self.instructions.pack(fill='both')
+
         self.filechooser.mainloop()
     def Done(self):
         self.filechooser.destroy()
