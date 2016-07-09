@@ -9,7 +9,8 @@ class MiniWindow:
         self.list = list
         self.mini = Toplevel(root)
         self.mini.wm_title("Matches")
-        self.mini.geometry("%dx%d+%d+%d" %(500,200,root.winfo_x()+root.winfo_screenwidth(),root.winfo_y()+root.winfo_height()-root.winfo_screenheight()))
+        print (root.winfo_screenwidth())
+        self.mini.geometry("%dx%d+%d+%d" %(500,200,root.winfo_x()+root.winfo_width(),root.winfo_y()))
         self.filelist = Listbox(self.mini)
         for item in self.list:
             self.filelist.insert('end',str(item))
@@ -53,7 +54,7 @@ class Window:
         self.root.wm_title("Duplicate_Files")
         self.min = None
         self.list = list
-        self.root.geometry('600x600')
+        self.root.geometry('600x600+0+0')
         self.tree = Treeview(self.root ,height=15)
         self.tree.pack(expand='yes',fill='both')
         self.tree.heading('#0',text="files")

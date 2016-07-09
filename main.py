@@ -12,7 +12,7 @@ dirlist = []
 class FileChooser:
     def __init__(self):
         self.filechooser = Tk()
-        self.filechooser.geometry('500x500')
+        self.filechooser.geometry('500x500+0+0')
         self.button  = Button(self.filechooser,text="Add Directory",command=self.addDir)
         self.listview = Listbox(self.filechooser)
         self.closebutton = Button(self.filechooser,text="Scan",command=self.Done)
