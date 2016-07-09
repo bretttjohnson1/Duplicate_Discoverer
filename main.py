@@ -1,144 +1,9 @@
-import xxhash, os, sys
-from tkinter import Tk,Listbox,Button,Toplevel,Label
+import os
+from hash_directories import Hasher
+from window import Window
 from tkinter import filedialog
-#from tkFileDialog import askdirectory
-import subprocess
-from threading import Thread
-#import ttk
-from tkinter.ttk import Treeview, Progressbar
+from tkinter import Tk,Listbox,Button,Label
 from tkinter.filedialog import askdirectory
-import ast
-
-class MiniWindow:
-    def __init__(self,root,list):
-        self.list = list
-        self.mini = Toplevel(root)
-        self.mini.wm_title("Matches")
-        self.mini.geometry("500x100")
-        self.filelist = Listbox(self.mini)
-        for item in self.list:
-            self.filelist.insert('end',str(item))
-        self.filelist.bind("<<ListboxSelect>>",self.onClick)
-        self.filelist.pack(fill="both")
-    def onClick(self,event):
-        print(self.filelist.curselection())
-        index = int(self.filelist.curselection()[0])
-        link = self.list[index]
-        filedir = os.path.dirname(link)
-        if os.name == 'nt':
-            os.startfile(filedir)
-        elif os.name == 'posix':
-            subprocess.Popen(["xdg-open",filedir])
-
-class Search:
-    def hashdirectories(self,directories,map,ldb):
-        for dir in directories:
-            self.hashdirectory(dir,map,ldb)
-        return map
-
-    def hashdirectory(self,directory,map,ldb):
-        hashfunc = xxhash.xxh32()
-        for file in os.listdir(directory):
-            if(os.path.isdir(os.path.join(directory,file))):
-                #print os.path.join(directory,file)
-                key = self.hashdirectory(os.path.join(directory,file),map,ldb)
-                if key in map:
-                    map[key] = map[key] + "?"+os.path.join(directory,file)
-                else:
-                    map[key] = os.path.join(directory,file)
-                hashfunc.update(key)
-            if(os.path.isfile(os.path.join(directory,file))):
-                hf = xxhash.xxh64()
-                f = open(os.path.join(directory,file),'rb').read()
-                byts = bytes(f)
-                #mem = memoryview(byts)
-                buffersize = 1048576
-                bytesize = sys.getsizeof(byts)
-                ldb.pgb.step(bytesize/1024)
-                if bytesize-buffersize>0:
-                    for i in range(0,bytesize-buffersize,buffersize):
-                        if bytesize-i>buffersize:
-                            hf.update(byts[i:(i+buffersize)])
-                        else:
-                            hf.update(byts[i:])
-                else:
-                    hf.update(byts[0:])
-
-                key = hf.digest()
-                if key in map:
-                    map[key] = map[key] + "?"+os.path.join(directory,file)
-                else:
-                    map[key] = os.path.join(directory,file)
-                hashfunc.update(key)
-        key = hashfunc.digest()
-        return key
-
-class Window:
-    def fillTree(self,path, parent, list):
-        for file in os.listdir(path):
-            abspath = os.path.join(path,file)
-            color = ""
-            treelist = None
-            for mini in list:
-                if abspath in mini:
-                    color = 'red'
-                    treelist = mini
-                else:
-                    for lk in mini:
-                        if abspath in lk:
-                            color = 'purple'
-            child = None
-            if color == 'red':
-                child = self.tree.insert(parent,'end',text=file,open=False,tags=(abspath,'red',str(treelist)),)
-            elif color == 'purple':
-                child = self.tree.insert(parent,'end',text=file,open=False,tags=(abspath,'purple'))
-            else:
-                child = self.tree.insert(parent,'end',text=file,open=False,tags=(abspath,'white'))
-            if(os.path.isdir(abspath)):
-                self.tree.insert(child,'end',text='',open=False)
-    def __init__(self,list,dirlist):
-        self.root = Tk()
-        self.root.wm_title("Duplicate_Files")
-        self.min = None
-        self.list = list
-        self.root.geometry('600x600')
-        self.tree = Treeview(self.root ,height=15)
-        self.tree.pack(expand='yes',fill='both')
-        self.tree.heading('#0',text="files")
-        self.tree.tag_configure('red',foreground='red')
-        self.tree.tag_configure('purple',foreground='#cc00ff')
-        self.tree.bind("<Double-1>",self.onDoubleClick)
-        self.tree.bind("<<TreeviewOpen>>",self.onOpen)
-        self.tree.bind("<<TreeviewClose>>",self.onClose)
-        for path in dirlist:
-            branch = self.tree.insert('','end',text=path,open=True,tags=(path,'white'))
-            self.fillTree(path,branch,list)
-        self.root.mainloop()
-
-
-    def onDoubleClick(self,event):
-        item = self.tree.selection()[0]
-        print ("clicked" + str(self.tree.item(item,'tags')[0]))
-        if str(self.tree.item(item,'tags')[1]) == "red":
-            list_of_files = ast.literal_eval(str(self.tree.item(item,'tags')[2]))
-            if self.min != None:
-                if self.min.mini.winfo_exists():
-                    self.min.mini.destroy()
-            self.min = MiniWindow(self.root,list_of_files)
-
-    def onOpen(self,event):
-        item = self.tree.selection()[0]
-        if self.tree.parent(item) != '':
-            if len(self.tree.get_children(item))>0:
-                self.tree.delete(self.tree.get_children(item))
-            abspath = str(self.tree.item(item,'tags')[0])
-            if(os.path.isdir(abspath)):
-                self.fillTree(abspath, item,self.list)
-    def onClose(self,event):
-        item = self.tree.selection()[0]
-        if self.tree.parent(item) != '':
-            if len(self.tree.get_children(item))>0:
-                self.tree.delete(self.tree.get_children(item))
 
 dirlist = []
 
@@ -150,12 +15,17 @@ class FileChooser:
         self.filechooser.geometry('500x500')
         self.button  = Button(self.filechooser,text="Add Directory",command=self.addDir)
         self.listview = Listbox(self.filechooser)
-        self.closebutton = Button(self.filechooser,text="Done",command=self.Done)
-        self.button.pack(fill='x')
+        self.closebutton = Button(self.filechooser,text="Scan",command=self.Done)
         self.listview.pack(fill="both")
-        self.closebutton.pack()
-        self.instructions = Label(self.filechooser, text="Select directories, then press done. \n When the file tree appears, red text means the file or folder is a duplicate.\n purple means the folder contains duplicates but is not a duplicate. \n Click on red text entries to view matches")
+        self.button.pack(fill='x')
+        helptext = """Select directories by pressing the "Add Directory" Button, then press Scan.
+                        \n When the file tree appears, red text means the file or folder is a duplicate.
+                        \n purple means the folder contains duplicates but itself is not a duplicate.
+                        \n Double Click on red text entries to view matches"""
+        self.instructions = Label(self.filechooser, text=helptext)
         self.instructions.pack(fill='both')
+        self.closebutton.pack()
+
 
         self.filechooser.mainloop()
     def Done(self):
@@ -166,20 +36,8 @@ class FileChooser:
             dirlist.append(dir)
             self.listview.insert('end',str(dir))
 fc = FileChooser()
+hh = Hasher()
 
-class Loadbar:
-    def __init__(self,size):
-        self.loadbar = Tk()
-        self.loadbar.wm_title('Loading')
-        self.pgb = Progressbar(self.loadbar,orient='horizontal',length='500',maximum=int(size))
-        self.pgb.pack()
-        self.pgb.start()
-    def start(self):
-        self.loadbar.mainloop()
-    def kill(self):
-        self.loadbar.destroy()
-
-hh = Search()
 map = {}
 size = 0
 for dir in dirlist:
@@ -187,20 +45,8 @@ for dir in dirlist:
         for f in filenames:
             if os.path.isfile(os.path.join(d,f)):
                 size += os.path.getsize(os.path.join(d,f))/1024
-print (size)
 
-ldb = Loadbar(size)
-
-def Hash():
-    global hh
-    global map
-    global dirlist
-    global ldb
-    hh.hashdirectories(dirlist,map,ldb)
-    ldb.kill()
-t = Thread(target=Hash)
-t.start()
-ldb.start()
+hh.hash(dirlist,map,size)
 
 list = []
 for key in map:
@@ -220,8 +66,5 @@ for key in map:
 
         items.append(map[key][index+1:])
         list.append(items)
-
-for minilist in list:
-    print (minilist)
 
 root = Window(list,dirlist)
